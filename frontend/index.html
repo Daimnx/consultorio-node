@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Sistema de Consultorio</title>
+
+<style>
+body {
+  background:#950dfd;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+  font-family:Arial;
+  margin:0;
+}
+.card {
+  background:white;
+  padding:25px;
+  border-radius:10px;
+  width:440px;
+  max-height:90vh;
+  overflow:auto;
+}
+input, textarea, select, button {
+  width:100%;
+  padding:10px;
+  margin-bottom:8px;
+}
+button {
+  background:#0d6efd;
+  color:white;
+  border:none;
+  border-radius:5px;
+  cursor:pointer;
+}
+.secondary { background:#6c757d; }
+.danger { background:#dc3545; }
+.expediente,.pago {
+  border:1px solid #ddd;
+  padding:8px;
+  margin-bottom:8px;
+  border-radius:6px;
+}
+h2,h3 { text-align:center; }
+</style>
+</head>
+
+<body>
+<div class="card">
+
+<!-- LOGIN -->
+<div id="loginContainer">
+  <h2>Iniciar sesión</h2>
+  <form id="loginForm">
+    <input id="usuario" placeholder="Usuario" required>
+    <input id="password" type="password" placeholder="Contraseña" required>
+    <button>Ingresar</button>
+  </form>
+  <p id="mensaje"></p>
+</div>
+
+<!-- MENU -->
+<div id="menuContainer" style="display:none">
+  <h2>Menú</h2>
+  <button onclick="crearExpediente()">➕ Crear expediente</button>
+  <button onclick="verExpedientes()">📂 Ver expedientes</button>
+  <button onclick="mostrarPagos()">💰 Pagos</button>
+  <button onclick="mostrarIngresos()">📊 Dinero por fecha</button>
+  <button class="secondary" onclick="cerrarSesion()">Cerrar sesión</button>
+</div>
+
+<!-- CREAR / EDITAR -->
+<div id="crearExpedienteContainer" style="display:none">
+  <h2 id="tituloExpediente">Crear expediente</h2>
+  <input id="nombrePaciente" placeholder="Nombre">
+  <input id="edadPaciente" type="number" placeholder="Edad">
+  <input id="diagnosticoPaciente" placeholder="Diagnóstico">
+  <input id="fechaConsulta" type="date">
+  <textarea id="notasPaciente" placeholder="Notas"></textarea>
+  <button onclick="guardarExpediente()">💾 Guardar</button>
+  <button class="secondary" onclick="volverMenu()">Volver</button>
+</div>
+
+<!-- VER -->
+<div id="verExpedientesContainer" style="display:none">
+  <h2>Expedientes</h2>
+  <div id="listaExpedientes"></div>
+  <button class="secondary" onclick="volverMenu()">Volver</button>
+</div>
+
+<!-- PAGOS -->
+<div id="pagosContainer" style="display:none">
+  <h2>Pagos</h2>
+  <select id="pacientePago"></select>
+  <input id="montoPago" type="number" placeholder="Monto">
+  <input id="conceptoPago" placeholder="Concepto">
+  <input id="fechaPago" type="date">
+  <button onclick="registrarPago()">Registrar</button>
+  <div id="listaPagos"></div>
+  <button class="secondary" onclick="volverMenu()">Volver</button>
+</div>
+
+<!-- INGRESOS -->
+<div id="ingresosContainer" style="display:none">
+  <h2>Ingresos por fecha</h2>
+  <input id="fechaIngreso" type="date">
+  <button onclick="calcularIngresos()">Calcular</button>
+  <h3>Total: <span id="totalIngresos">$0</span></h3>
+  <div id="listaIngresos"></div>
+  <button class="secondary" onclick="volverMenu()">Volver</button>
+</div>
+
+</div>
+
+<script>
+/* USUARIOS */
+const usuarios = [
+  {user:"carlos", pass:"capurra3"},
+  {user:"maritza", pass:"3333"}
+];
+let usuarioActual = null;
+let expedienteEditandoId = null;
+
+/* LOGIN */
+loginForm.onsubmit = e => {
+  e.preventDefault();
+  const ok = usuarios.find(u=>u.user===usuario.value && u.pass===password.value);
+  if(ok){
+    usuarioActual = ok.user;
+    loginContainer.style.display="none";
+    menuContainer.style.display="block";
+  } else mensaje.textContent="Credenciales incorrectas";
+};
+
+/* EXPEDIENTES */
+function crearExpediente(){
+  expedienteEditandoId = null;
+  tituloExpediente.textContent="Crear expediente";
+  nombrePaciente.value="";
+  edadPaciente.value="";
+  diagnosticoPaciente.value="";
+  fechaConsulta.value="";
+  notasPaciente.value="";
+  menuContainer.style.display="none";
+  crearExpedienteContainer.style.display="block";
+}
+
+function guardarExpediente(){
+  let exps = JSON.parse(localStorage.getItem("expedientes"))||[];
+
+  if(expedienteEditandoId){
+    const exp = exps.find(e=>e.id===expedienteEditandoId);
+    exp.nombre=nombrePaciente.value;
+    exp.edad=edadPaciente.value;
+    exp.diagnostico=diagnosticoPaciente.value;
+    exp.fecha=fechaConsulta.value;
+    exp.notas=notasPaciente.value;
+  } else {
+    exps.push({
+      id:Date.now(),
+      usuario:usuarioActual,
+      nombre:nombrePaciente.value,
+      edad:edadPaciente.value,
+      diagnostico:diagnosticoPaciente.value,
+      fecha:fechaConsulta.value,
+      notas:notasPaciente.value
+    });
+  }
+
+  localStorage.setItem("expedientes",JSON.stringify(exps));
+  volverMenu();
+}
+
+function verExpedientes(){
+  menuContainer.style.display="none";
+  verExpedientesContainer.style.display="block";
+  listaExpedientes.innerHTML="";
+  const exps = JSON.parse(localStorage.getItem("expedientes"))||[];
+  exps.filter(e=>e.usuario===usuarioActual).forEach(e=>{
+    listaExpedientes.innerHTML+=`
+    <div class="expediente">
+      <b>${e.nombre}</b><br>
+      ${e.diagnostico}<br>
+      <button onclick="editarExpediente(${e.id})">✏️ Editar</button>
+      <button class="danger" onclick="eliminarExpediente(${e.id})">🗑 Eliminar</button>
+    </div>`;
+  });
+}
+
+function editarExpediente(id){
+  const exps = JSON.parse(localStorage.getItem("expedientes"))||[];
+  const e = exps.find(x=>x.id===id);
+  expedienteEditandoId=id;
+  tituloExpediente.textContent="Editar expediente";
+  nombrePaciente.value=e.nombre;
+  edadPaciente.value=e.edad;
+  diagnosticoPaciente.value=e.diagnostico;
+  fechaConsulta.value=e.fecha;
+  notasPaciente.value=e.notas;
+  verExpedientesContainer.style.display="none";
+  crearExpedienteContainer.style.display="block";
+}
+
+function eliminarExpediente(id){
+  if(!confirm("¿Eliminar expediente?")) return;
+  let exps = JSON.parse(localStorage.getItem("expedientes"))||[];
+  exps = exps.filter(e=>e.id!==id);
+  localStorage.setItem("expedientes",JSON.stringify(exps));
+  verExpedientes();
+}
+
+/* PAGOS */
+function mostrarPagos(){
+  menuContainer.style.display="none";
+  pagosContainer.style.display="block";
+  const exps = JSON.parse(localStorage.getItem("expedientes"))||[];
+  pacientePago.innerHTML="";
+  exps.filter(e=>e.usuario===usuarioActual)
+      .forEach(e=>pacientePago.innerHTML+=`<option value="${e.id}">${e.nombre}</option>`);
+  mostrarPagosPaciente();
+}
+
+function registrarPago(){
+  const pagos = JSON.parse(localStorage.getItem("pagos"))||[];
+  pagos.push({
+    id:Date.now(),
+    expedienteId:pacientePago.value,
+    monto:+montoPago.value,
+    concepto:conceptoPago.value,
+    fecha:fechaPago.value
+  });
+  localStorage.setItem("pagos",JSON.stringify(pagos));
+  mostrarPagosPaciente();
+}
+
+function mostrarPagosPaciente(){
+  const pagos = JSON.parse(localStorage.getItem("pagos"))||[];
+  listaPagos.innerHTML="";
+  pagos.filter(p=>p.expedienteId===pacientePago.value)
+       .forEach(p=>{
+         listaPagos.innerHTML+=`
+         <div class="pago">
+           $${p.monto} - ${p.concepto}
+         </div>`;
+       });
+}
+
+/* INGRESOS */
+function mostrarIngresos(){
+  menuContainer.style.display="none";
+  ingresosContainer.style.display="block";
+}
+
+function calcularIngresos(){
+  const fecha = fechaIngreso.value;
+  const pagos = JSON.parse(localStorage.getItem("pagos"))||[];
+  const exps = JSON.parse(localStorage.getItem("expedientes"))||[];
+  listaIngresos.innerHTML="";
+  let total=0;
+
+  pagos.filter(p=>p.fecha===fecha).forEach(p=>{
+    const exp = exps.find(e=>e.id==p.expedienteId && e.usuario===usuarioActual);
+    if(exp){
+      total+=p.monto;
+      listaIngresos.innerHTML+=`
+      <div class="pago">
+        <b>Paciente:</b> ${exp.nombre}<br>
+        <b>Monto:</b> $${p.monto}<br>
+        <b>Concepto:</b> ${p.concepto}
+      </div>`;
+    }
+  });
+  totalIngresos.textContent="$"+total;
+}
+
+/* NAV */
+function volverMenu(){
+  crearExpedienteContainer.style.display=
+  verExpedientesContainer.style.display=
+  pagosContainer.style.display=
+  ingresosContainer.style.display="none";
+  menuContainer.style.display="block";
+}
+function cerrarSesion(){ location.reload(); }
+</script>
+</body>
+</html>

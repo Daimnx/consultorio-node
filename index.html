@@ -43,6 +43,7 @@ button {
   border-radius:6px;
 }
 h2,h3 { text-align:center; }
+img { margin-top:6px; }
 </style>
 </head>
 
@@ -78,6 +79,11 @@ h2,h3 { text-align:center; }
   <input id="diagnosticoPaciente" placeholder="Diagnóstico">
   <input id="fechaConsulta" type="date">
   <textarea id="notasPaciente" placeholder="Notas"></textarea>
+
+  <!-- IMAGEN -->
+  <input id="imagenPaciente" type="file" accept="image/*">
+  <img id="previewImagen" style="max-width:100%;display:none;border-radius:8px;">
+
   <button onclick="guardarExpediente()">💾 Guardar</button>
   <button class="secondary" onclick="volverMenu()">Volver</button>
 </div>
@@ -119,8 +125,10 @@ const usuarios = [
   {user:"carlos", pass:"capurra3"},
   {user:"maritza", pass:"3333"}
 ];
+
 let usuarioActual = null;
 let expedienteEditandoId = null;
+let imagenBase64 = null;
 
 /* LOGIN */
 loginForm.onsubmit = e => {
@@ -133,6 +141,19 @@ loginForm.onsubmit = e => {
   } else mensaje.textContent="Credenciales incorrectas";
 };
 
+/* IMAGEN */
+imagenPaciente.onchange = () => {
+  const file = imagenPaciente.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    imagenBase64 = reader.result;
+    previewImagen.src = imagenBase64;
+    previewImagen.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+};
+
 /* EXPEDIENTES */
 function crearExpediente(){
   expedienteEditandoId = null;
@@ -142,6 +163,10 @@ function crearExpediente(){
   diagnosticoPaciente.value="";
   fechaConsulta.value="";
   notasPaciente.value="";
+  imagenPaciente.value="";
+  previewImagen.style.display="none";
+  imagenBase64=null;
+
   menuContainer.style.display="none";
   crearExpedienteContainer.style.display="block";
 }
@@ -156,6 +181,7 @@ function guardarExpediente(){
     exp.diagnostico=diagnosticoPaciente.value;
     exp.fecha=fechaConsulta.value;
     exp.notas=notasPaciente.value;
+    exp.imagen = imagenBase64 || exp.imagen;
   } else {
     exps.push({
       id:Date.now(),
@@ -164,7 +190,8 @@ function guardarExpediente(){
       edad:edadPaciente.value,
       diagnostico:diagnosticoPaciente.value,
       fecha:fechaConsulta.value,
-      notas:notasPaciente.value
+      notas:notasPaciente.value,
+      imagen: imagenBase64
     });
   }
 
@@ -177,11 +204,13 @@ function verExpedientes(){
   verExpedientesContainer.style.display="block";
   listaExpedientes.innerHTML="";
   const exps = JSON.parse(localStorage.getItem("expedientes"))||[];
+
   exps.filter(e=>e.usuario===usuarioActual).forEach(e=>{
     listaExpedientes.innerHTML+=`
     <div class="expediente">
       <b>${e.nombre}</b><br>
       ${e.diagnostico}<br>
+      ${e.imagen ? `<img src="${e.imagen}" style="max-width:100%;border-radius:6px;">` : ""}
       <button onclick="editarExpediente(${e.id})">✏️ Editar</button>
       <button class="danger" onclick="eliminarExpediente(${e.id})">🗑 Eliminar</button>
     </div>`;
@@ -192,12 +221,20 @@ function editarExpediente(id){
   const exps = JSON.parse(localStorage.getItem("expedientes"))||[];
   const e = exps.find(x=>x.id===id);
   expedienteEditandoId=id;
+
   tituloExpediente.textContent="Editar expediente";
   nombrePaciente.value=e.nombre;
   edadPaciente.value=e.edad;
   diagnosticoPaciente.value=e.diagnostico;
   fechaConsulta.value=e.fecha;
   notasPaciente.value=e.notas;
+  imagenBase64 = e.imagen || null;
+
+  if(e.imagen){
+    previewImagen.src=e.imagen;
+    previewImagen.style.display="block";
+  }
+
   verExpedientesContainer.style.display="none";
   crearExpedienteContainer.style.display="block";
 }
